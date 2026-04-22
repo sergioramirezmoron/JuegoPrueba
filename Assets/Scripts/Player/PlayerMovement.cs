@@ -2,17 +2,18 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
-    public float speed = 5f;
+    public float walkSpeed = 5f;
     public float sprintSpeed = 8f;
-    public float gravity = -9.81f;
+    public float acceleration = 12f;
+    public float deceleration = 14f;
+    public float airControl = 0.4f;
+
+    public float gravity = -20f;
     public float jumpHeight = 1.5f;
 
-    public Transform groundCheck;
-    public float groundDistance = 0.2f;
-    public LayerMask groundMask;
-
     private CharacterController controller;
-    private Vector3 velocity;
+    private Vector3 horizontalVelocity;
+    private float verticalVelocity;
     private bool isGrounded;
 
     void Start()
@@ -22,27 +23,43 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+        isGrounded = controller.isGrounded;
 
-        if (isGrounded && velocity.y < 0)
+        if (isGrounded && verticalVelocity < 0)
         {
-            velocity.y = -2f;
+            verticalVelocity = -2f;
         }
 
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
-        float currentSpeed = Input.GetKey(KeyCode.LeftShift) ? sprintSpeed : speed;
+        Vector3 inputDir = transform.right * x + transform.forward * z;
+        inputDir = Vector3.ClampMagnitude(inputDir, 1f);
 
-        Vector3 move = transform.right * x + transform.forward * z;
-        controller.Move(move * currentSpeed * Time.deltaTime);
+        float targetSpeed = Input.GetKey(KeyCode.LeftShift) ? sprintSpeed : walkSpeed;
+        Vector3 targetVelocity = inputDir * targetSpeed;
+
+        float smooth = isGrounded ? acceleration : acceleration * airControl;
+
+        if (inputDir.magnitude > 0.01f)
+        {
+            horizontalVelocity = Vector3.Lerp(horizontalVelocity, targetVelocity, smooth * Time.deltaTime);
+        }
+        else
+        {
+            horizontalVelocity = Vector3.Lerp(horizontalVelocity, Vector3.zero, deceleration * Time.deltaTime);
+        }
 
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
-            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
 
-        velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+        verticalVelocity += gravity * Time.deltaTime;
+
+        Vector3 finalMove = horizontalVelocity;
+        finalMove.y = verticalVelocity;
+
+        controller.Move(finalMove * Time.deltaTime);
     }
 }
