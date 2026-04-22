@@ -11,6 +11,8 @@ public class PlayerMovement : MonoBehaviour
     public float gravity = -20f;
     public float jumpHeight = 1.5f;
 
+    public GameObject interactText;
+
     private CharacterController controller;
     private Vector3 horizontalVelocity;
     private float verticalVelocity;
@@ -19,6 +21,11 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+
+        if (interactText != null)
+        {
+            interactText.SetActive(false);
+        }
     }
 
     void Update()
@@ -61,5 +68,30 @@ public class PlayerMovement : MonoBehaviour
         finalMove.y = verticalVelocity;
 
         controller.Move(finalMove * Time.deltaTime);
+
+        Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
+        RaycastHit hit;
+
+        bool lookingAtDoor = false;
+
+        if (Physics.Raycast(ray, out hit, 3f))
+        {
+            Door door = hit.collider.GetComponentInParent<Door>();
+
+            if (door != null)
+            {
+                lookingAtDoor = true;
+
+                if (Input.GetKeyDown(KeyCode.E))
+                {
+                    door.ToggleDoor();
+                }
+            }
+        }
+
+        if (interactText != null)
+        {
+            interactText.SetActive(lookingAtDoor);
+        }
     }
 }
