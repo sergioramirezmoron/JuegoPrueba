@@ -3,16 +3,17 @@ using UnityEngine;
 public class PlayerMovement : MonoBehaviour
 {
     public float speed = 5f;
+    public float sprintSpeed = 8f;
     public float gravity = -9.81f;
     public float jumpHeight = 1.5f;
-
-    private CharacterController controller;
-    private Vector3 velocity;
-    private bool isGrounded;
 
     public Transform groundCheck;
     public float groundDistance = 0.2f;
     public LayerMask groundMask;
+
+    private CharacterController controller;
+    private Vector3 velocity;
+    private bool isGrounded;
 
     void Start()
     {
@@ -31,8 +32,10 @@ public class PlayerMovement : MonoBehaviour
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
+        float currentSpeed = Input.GetKey(KeyCode.LeftShift) ? sprintSpeed : speed;
+
         Vector3 move = transform.right * x + transform.forward * z;
-        controller.Move(move * speed * Time.deltaTime);
+        controller.Move(move * currentSpeed * Time.deltaTime);
 
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
