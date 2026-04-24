@@ -69,22 +69,34 @@ public class PlayerMovement : MonoBehaviour
 
         controller.Move(finalMove * Time.deltaTime);
 
-        Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
-        RaycastHit hit;
+        HandleDoorInteraction();
+    }
 
+    void HandleDoorInteraction()
+    {
         bool lookingAtDoor = false;
 
-        if (Physics.Raycast(ray, out hit, 3f))
+        Door[] doors = FindObjectsByType<Door>(FindObjectsSortMode.None);
+
+        foreach (Door door in doors)
         {
-            Door door = hit.collider.GetComponentInParent<Door>();
+            float distance = Vector3.Distance(Camera.main.transform.position, door.transform.position);
 
-            if (door != null)
+            if (distance <= 2.2f)
             {
-                lookingAtDoor = true;
+                Vector3 directionToDoor = (door.transform.position - Camera.main.transform.position).normalized;
+                float lookDot = Vector3.Dot(Camera.main.transform.forward, directionToDoor);
 
-                if (Input.GetKeyDown(KeyCode.E))
+                if (lookDot > 0.35f)
                 {
-                    door.ToggleDoor();
+                    lookingAtDoor = true;
+
+                    if (Input.GetKeyDown(KeyCode.E))
+                    {
+                        door.ToggleDoor();
+                    }
+
+                    break;
                 }
             }
         }
