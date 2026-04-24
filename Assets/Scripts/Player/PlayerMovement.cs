@@ -2,6 +2,9 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
+    private const float GroundedStickForce = -2f;
+    private const string CameraPivotName = "CameraPivot";
+
     public float walkSpeed = 5f;
     public float sprintSpeed = 8f;
     public float acceleration = 12f;
@@ -11,7 +14,12 @@ public class PlayerMovement : MonoBehaviour
     public float gravity = -20f;
     public float jumpHeight = 1.5f;
 
+    public float controllerHeight = 1.84f;
+    public float controllerRadius = 0.32f;
+    public float cameraHeight = 1.68f;
+
     public GameObject interactText;
+    public Transform cameraPivot;
 
     private CharacterController controller;
     private Vector3 horizontalVelocity;
@@ -21,6 +29,8 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        ResolveCameraPivot();
+        ApplyCharacterSetup();
 
         if (interactText != null)
         {
@@ -34,7 +44,7 @@ public class PlayerMovement : MonoBehaviour
 
         if (isGrounded && verticalVelocity < 0)
         {
-            verticalVelocity = -2f;
+            verticalVelocity = GroundedStickForce;
         }
 
         float x = Input.GetAxis("Horizontal");
@@ -104,6 +114,63 @@ public class PlayerMovement : MonoBehaviour
         if (interactText != null)
         {
             interactText.SetActive(lookingAtDoor);
+        }
+    }
+
+    public void ApplyCharacterSetup()
+    {
+        if (controller == null)
+        {
+            controller = GetComponent<CharacterController>();
+        }
+
+        if (controller == null)
+        {
+            return;
+        }
+
+        controller.height = controllerHeight;
+        controller.radius = controllerRadius;
+        controller.center = new Vector3(0f, controllerHeight * 0.5f, 0f);
+
+        ResolveCameraPivot();
+
+        if (cameraPivot != null)
+        {
+            Vector3 pivotPosition = cameraPivot.localPosition;
+            pivotPosition.x = 0f;
+            pivotPosition.y = cameraHeight;
+            pivotPosition.z = 0f;
+            cameraPivot.localPosition = pivotPosition;
+        }
+    }
+
+    void OnValidate()
+    {
+        controllerHeight = Mathf.Max(1.4f, controllerHeight);
+        controllerRadius = Mathf.Clamp(controllerRadius, 0.2f, 0.6f);
+        cameraHeight = Mathf.Clamp(cameraHeight, 1.2f, controllerHeight - 0.05f);
+
+        ApplyCharacterSetup();
+    }
+
+    private void ResolveCameraPivot()
+    {
+        if (cameraPivot != null)
+        {
+            return;
+        }
+
+        Transform namedPivot = transform.Find(CameraPivotName);
+        if (namedPivot != null)
+        {
+            cameraPivot = namedPivot;
+            return;
+        }
+
+        if (Camera.main != null && Camera.main.transform.parent != null && Camera.main.transform.parent.IsChildOf(transform))
+        {
+            cameraPivot = Camera.main.transform.parent;
         }
     }
 }
