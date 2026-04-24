@@ -3,16 +3,21 @@ using UnityEngine;
 
 public class PlayerHud : MonoBehaviour
 {
+    private const string BuildModeHint = "Construcción: B abrir";
+
     private PlayerVitals vitals;
     private PlayerInventory inventory;
+    private BuildingSystem buildingSystem;
     private TextMeshProUGUI promptTemplate;
     private TextMeshProUGUI statusText;
     private TextMeshProUGUI inventoryText;
+    private TextMeshProUGUI buildText;
 
-    public void Configure(PlayerVitals playerVitals, PlayerInventory playerInventory, TextMeshProUGUI interactionPromptTemplate)
+    public void Configure(PlayerVitals playerVitals, PlayerInventory playerInventory, BuildingSystem playerBuildingSystem, TextMeshProUGUI interactionPromptTemplate)
     {
         vitals = playerVitals;
         inventory = playerInventory;
+        buildingSystem = playerBuildingSystem;
         promptTemplate = interactionPromptTemplate;
 
         if (promptTemplate == null)
@@ -22,6 +27,9 @@ public class PlayerHud : MonoBehaviour
 
         statusText = statusText != null ? statusText : CreateTextClone("StatusText", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -24f), TextAlignmentOptions.TopLeft, 28f);
         inventoryText = inventoryText != null ? inventoryText : CreateTextClone("InventoryText", new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -24f), TextAlignmentOptions.TopRight, 24f);
+        buildText = buildText != null ? buildText : CreateTextClone("BuildText", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 24f), TextAlignmentOptions.Bottom, 22f);
+        buildText.rectTransform.pivot = new Vector2(0.5f, 0f);
+        buildText.rectTransform.sizeDelta = new Vector2(760f, 180f);
     }
 
     void LateUpdate()
@@ -34,6 +42,11 @@ public class PlayerHud : MonoBehaviour
         if (inventory != null && inventoryText != null)
         {
             inventoryText.text = inventory.GetInventoryDisplay();
+        }
+
+        if (buildText != null)
+        {
+            buildText.text = buildingSystem != null ? buildingSystem.GetHudDisplay() : BuildModeHint;
         }
     }
 

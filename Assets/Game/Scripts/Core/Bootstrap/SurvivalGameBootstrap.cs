@@ -16,23 +16,16 @@ public static class SurvivalGameBootstrap
         PlayerInventory inventory = GetOrAddComponent<PlayerInventory>(playerObject);
         PlayerVitals vitals = GetOrAddComponent<PlayerVitals>(playerObject);
         PlayerInteractor interactor = GetOrAddComponent<PlayerInteractor>(playerObject);
+        BuildingSystem buildingSystem = GetOrAddComponent<BuildingSystem>(playerObject);
 
-        if (inventory.GetResourceCount(ResourceType.Food) == 0)
-        {
-            inventory.TryAddResource(ResourceType.Food, 2);
-        }
+        EnsureMinimumResource(inventory, ResourceType.Food, 2);
+        EnsureMinimumResource(inventory, ResourceType.Wood, 16);
+        EnsureMinimumResource(inventory, ResourceType.Scrap, 8);
 
         vitals.BindInventory(inventory);
 
         TextMeshProUGUI promptText = ResolveInteractionPrompt(playerMovement);
         interactor.Configure(Camera.main, promptText, inventory, vitals);
-
-        Canvas canvas = Object.FindFirstObjectByType<Canvas>();
-        if (canvas != null)
-        {
-            PlayerHud hud = GetOrAddComponent<PlayerHud>(canvas.gameObject);
-            hud.Configure(vitals, inventory, promptText);
-        }
 
         GameObject systemsRoot = GameObject.Find("GameplaySystems");
         if (systemsRoot == null)
@@ -42,6 +35,22 @@ public static class SurvivalGameBootstrap
 
         ResourceSpawner resourceSpawner = GetOrAddComponent<ResourceSpawner>(systemsRoot);
         resourceSpawner.EnsurePrototypeResources();
+
+        GameObject buildRoot = GameObject.Find("PlayerBase");
+        if (buildRoot == null)
+        {
+            buildRoot = new GameObject("PlayerBase");
+            buildRoot.transform.SetParent(systemsRoot.transform, false);
+        }
+
+        buildingSystem.Configure(Camera.main, inventory, buildRoot.transform);
+
+        Canvas canvas = Object.FindFirstObjectByType<Canvas>();
+        if (canvas != null)
+        {
+            PlayerHud hud = GetOrAddComponent<PlayerHud>(canvas.gameObject);
+            hud.Configure(vitals, inventory, buildingSystem, promptText);
+        }
     }
 
     private static TextMeshProUGUI ResolveInteractionPrompt(PlayerMovement playerMovement)
@@ -77,5 +86,16 @@ public static class SurvivalGameBootstrap
         }
 
         return component;
+    }
+
+    private static void EnsureMinimumResource(PlayerInventory inventory, ResourceType resourceType, int minimumAmount)
+    {
+        int currentAmount = inventory.GetResourceCount(resourceType);
+        if (currentAmount >= minimumAmount)
+        {
+            return;
+        }
+
+        inventory.TryAddResource(resourceType, minimumAmount - currentAmount);
     }
 }

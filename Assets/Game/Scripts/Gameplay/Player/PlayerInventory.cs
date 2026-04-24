@@ -82,7 +82,7 @@ public class PlayerInventory : MonoBehaviour
         builder.AppendLine($"Chatarra: {GetResourceCount(ResourceType.Scrap)}");
         builder.AppendLine($"Comida: {GetResourceCount(ResourceType.Food)}");
         builder.AppendLine();
-        builder.Append("E: recoger o usar | F: comer");
+        builder.Append("E: recoger o usar | F: comer | B: construir");
         return builder.ToString();
     }
 
