@@ -22,6 +22,7 @@ public class PlayerMovement : MonoBehaviour
     public Transform cameraPivot;
 
     private CharacterController controller;
+    private PlayerVitals playerVitals;
     private Vector3 horizontalVelocity;
     private float verticalVelocity;
     private bool isGrounded;
@@ -29,6 +30,7 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        playerVitals = GetComponent<PlayerVitals>();
         ResolveCameraPivot();
         ApplyCharacterSetup();
 
@@ -53,7 +55,13 @@ public class PlayerMovement : MonoBehaviour
         Vector3 inputDir = transform.right * x + transform.forward * z;
         inputDir = Vector3.ClampMagnitude(inputDir, 1f);
 
-        float targetSpeed = Input.GetKey(KeyCode.LeftShift) ? sprintSpeed : walkSpeed;
+        if (playerVitals == null)
+        {
+            playerVitals = GetComponent<PlayerVitals>();
+        }
+
+        float speedMultiplier = playerVitals != null ? playerVitals.GetMovementMultiplier() : 1f;
+        float targetSpeed = (Input.GetKey(KeyCode.LeftShift) ? sprintSpeed : walkSpeed) * speedMultiplier;
         Vector3 targetVelocity = inputDir * targetSpeed;
 
         float smooth = isGrounded ? acceleration : acceleration * airControl;
@@ -78,43 +86,6 @@ public class PlayerMovement : MonoBehaviour
         finalMove.y = verticalVelocity;
 
         controller.Move(finalMove * Time.deltaTime);
-
-        HandleDoorInteraction();
-    }
-
-    void HandleDoorInteraction()
-    {
-        bool lookingAtDoor = false;
-
-        Door[] doors = FindObjectsByType<Door>(FindObjectsSortMode.None);
-
-        foreach (Door door in doors)
-        {
-            float distance = Vector3.Distance(Camera.main.transform.position, door.transform.position);
-
-            if (distance <= 2.2f)
-            {
-                Vector3 directionToDoor = (door.transform.position - Camera.main.transform.position).normalized;
-                float lookDot = Vector3.Dot(Camera.main.transform.forward, directionToDoor);
-
-                if (lookDot > 0.35f)
-                {
-                    lookingAtDoor = true;
-
-                    if (Input.GetKeyDown(KeyCode.E))
-                    {
-                        door.ToggleDoor();
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        if (interactText != null)
-        {
-            interactText.SetActive(lookingAtDoor);
-        }
     }
 
     public void ApplyCharacterSetup()

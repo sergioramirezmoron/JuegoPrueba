@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class Door : MonoBehaviour
+public class Door : MonoBehaviour, IInteractable
 {
     public float openAngle = 90f;
     public float speed = 2f;
@@ -30,5 +30,20 @@ public class Door : MonoBehaviour
     public void ToggleDoor()
     {
         isOpen = !isOpen;
+    }
+
+    public string GetInteractionPrompt()
+    {
+        return isOpen ? "Cerrar puerta" : "Abrir puerta";
+    }
+
+    public bool CanInteract(PlayerInteractor interactor)
+    {
+        return interactor != null;
+    }
+
+    public void Interact(PlayerInteractor interactor)
+    {
+        ToggleDoor();
     }
 }
