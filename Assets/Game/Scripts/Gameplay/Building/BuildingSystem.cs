@@ -4,10 +4,13 @@ public class BuildingSystem : MonoBehaviour
 {
     private const float FoundationHeight = 0.125f;
     private const float FoundationSocketSnapRadius = 0.75f;
+    private const float PlacementOverlapInset = 0.01f;
 
     public float buildDistance = 6f;
     public float foundationGridSize = 2f;
     public float socketFocusThreshold = 0.55f;
+    public float foundationRotationSpeed = 120f;
+    public float foundationWheelStep = 15f;
 
     private Camera playerCamera;
     private PlayerInventory inventory;
@@ -19,7 +22,10 @@ public class BuildingSystem : MonoBehaviour
     private Pose currentPlacementPose;
     private bool canPlaceCurrentPiece;
     private bool buildModeEnabled;
-    private int foundationRotationSteps;
+    private bool infiniteBuildEnabled;
+    private float foundationYaw;
+
+    public bool InfiniteBuildEnabled => infiniteBuildEnabled;
 
     public void Configure(Camera targetCamera, PlayerInventory playerInventory, Transform targetBuildRoot)
     {
@@ -35,14 +41,17 @@ public class BuildingSystem : MonoBehaviour
             return "Construcción: B abrir";
         }
 
-        string affordText = inventory != null && BuildingCatalog.CanAfford(inventory, selectedPieceType) ? "Listo" : "Faltan materiales";
+        string affordText = infiniteBuildEnabled || (inventory != null && BuildingCatalog.CanAfford(inventory, selectedPieceType)) ? "Listo" : "Faltan materiales";
         string pieceName = BuildingCatalog.GetDefinition(selectedPieceType).DisplayName;
+        string costLabel = infiniteBuildEnabled ? "Infinito" : BuildingCatalog.GetCostLabel(selectedPieceType);
+        string modeLabel = infiniteBuildEnabled ? "ON" : "OFF";
 
         return "Modo construcción\n" +
                $"Pieza: {pieceName}\n" +
-               $"Coste: {BuildingCatalog.GetCostLabel(selectedPieceType)}\n" +
+               $"Coste: {costLabel}\n" +
                $"Estado: {affordText}\n" +
-               "B salir | 1 Foundation | 2 Wall | 3 Doorway | R rotar | Click izq colocar";
+               $"ConstrucciÃ³n infinita: {modeLabel}\n" +
+               "B salir | F6 infinito | 1 Foundation | 2 Wall | 3 Doorway | Q/E o rueda rotar | Click izq colocar";
     }
 
     void Update()
@@ -75,11 +84,26 @@ public class BuildingSystem : MonoBehaviour
         return new Vector3(snappedX, foundationCenterHeight, snappedZ);
     }
 
+    public static Quaternion CreateFoundationRotation(float yawDegrees)
+    {
+        return Quaternion.Euler(0f, NormalizeFoundationYaw(yawDegrees), 0f);
+    }
+
+    public void ToggleInfiniteBuild()
+    {
+        infiniteBuildEnabled = !infiniteBuildEnabled;
+    }
+
     private void HandleBuildModeInput()
     {
         if (Input.GetKeyDown(KeyCode.B))
         {
             buildModeEnabled = !buildModeEnabled;
+        }
+
+        if (Input.GetKeyDown(KeyCode.F6))
+        {
+            ToggleInfiniteBuild();
         }
 
         if (!buildModeEnabled)
@@ -100,9 +124,30 @@ public class BuildingSystem : MonoBehaviour
             selectedPieceType = BuildPieceType.Doorway;
         }
 
-        if (Input.GetKeyDown(KeyCode.R) && selectedPieceType == BuildPieceType.Foundation)
+        if (selectedPieceType == BuildPieceType.Foundation)
         {
-            foundationRotationSteps = (foundationRotationSteps + 1) % 4;
+            float yawDelta = 0f;
+
+            if (Input.GetKey(KeyCode.Q))
+            {
+                yawDelta -= foundationRotationSpeed * Time.deltaTime;
+            }
+
+            if (Input.GetKey(KeyCode.E))
+            {
+                yawDelta += foundationRotationSpeed * Time.deltaTime;
+            }
+
+            float mouseWheel = Input.mouseScrollDelta.y;
+            if (Mathf.Abs(mouseWheel) > Mathf.Epsilon)
+            {
+                yawDelta += mouseWheel * foundationWheelStep;
+            }
+
+            if (Mathf.Abs(yawDelta) > Mathf.Epsilon)
+            {
+                foundationYaw = NormalizeFoundationYaw(foundationYaw + yawDelta);
+            }
         }
     }
 
@@ -167,7 +212,7 @@ public class BuildingSystem : MonoBehaviour
         }
 
         groundHitPoint = ray.GetPoint(enter);
-        Quaternion rotation = Quaternion.Euler(0f, foundationRotationSteps * 90f, 0f);
+        Quaternion rotation = CreateFoundationRotation(foundationYaw);
 
         placementPose = new Pose(new Vector3(groundHitPoint.x, FoundationHeight, groundHitPoint.z), rotation);
         return true;
@@ -245,7 +290,7 @@ public class BuildingSystem : MonoBehaviour
     {
         if (targetSocket != null)
         {
-            return targetSocket.CanAttach(selectedPieceType);
+            return targetSocket.CanAttach(selectedPieceType) && !HasStructureOverlap(placementPose);
         }
 
         if (selectedPieceType != BuildPieceType.Foundation)
@@ -253,26 +298,12 @@ public class BuildingSystem : MonoBehaviour
             return false;
         }
 
-        BuildPiece[] pieces = FindObjectsByType<BuildPiece>(FindObjectsSortMode.None);
-        foreach (BuildPiece piece in pieces)
-        {
-            if (piece == null || piece == previewPiece || piece.IsPreview || piece.pieceType != BuildPieceType.Foundation)
-            {
-                continue;
-            }
-
-            if (Vector3.Distance(piece.transform.position, placementPose.position) < BuildPiece.FoundationSize * 0.9f)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return !HasStructureOverlap(placementPose);
     }
 
     private void PlaceCurrentPiece()
     {
-        if (inventory == null || !BuildingCatalog.TryConsumePlacementCost(inventory, selectedPieceType))
+        if (!infiniteBuildEnabled && (inventory == null || !BuildingCatalog.TryConsumePlacementCost(inventory, selectedPieceType)))
         {
             return;
         }
@@ -324,5 +355,67 @@ public class BuildingSystem : MonoBehaviour
         {
             previewPiece.gameObject.SetActive(false);
         }
+    }
+
+    private bool HasStructureOverlap(Pose placementPose)
+    {
+        if (previewPiece == null)
+        {
+            return false;
+        }
+
+        foreach (BoxCollider collisionBox in previewPiece.CollisionBoxes)
+        {
+            if (collisionBox == null)
+            {
+                continue;
+            }
+
+            Vector3 halfExtents = GetPlacementHalfExtents(collisionBox);
+            Vector3 worldCenter = GetPlacementWorldCenter(placementPose, collisionBox);
+            Quaternion worldRotation = placementPose.rotation * collisionBox.transform.localRotation;
+            Collider[] overlaps = Physics.OverlapBox(worldCenter, halfExtents, worldRotation, ~0, QueryTriggerInteraction.Ignore);
+
+            foreach (Collider overlap in overlaps)
+            {
+                if (overlap == null)
+                {
+                    continue;
+                }
+
+                BuildPiece overlapPiece = overlap.GetComponentInParent<BuildPiece>();
+                if (overlapPiece == null || overlapPiece == previewPiece || overlapPiece.IsPreview)
+                {
+                    continue;
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static Vector3 GetPlacementWorldCenter(Pose placementPose, BoxCollider collisionBox)
+    {
+        Vector3 scaledCenter = Vector3.Scale(collisionBox.center, collisionBox.transform.localScale);
+        Vector3 localCenter = collisionBox.transform.localPosition + scaledCenter;
+        return placementPose.position + (placementPose.rotation * localCenter);
+    }
+
+    private static Vector3 GetPlacementHalfExtents(BoxCollider collisionBox)
+    {
+        Vector3 scaledSize = Vector3.Scale(collisionBox.size, collisionBox.transform.localScale);
+        Vector3 halfExtents = scaledSize * 0.5f;
+
+        return new Vector3(
+            Mathf.Max(0.01f, halfExtents.x - PlacementOverlapInset),
+            Mathf.Max(0.01f, halfExtents.y - PlacementOverlapInset),
+            Mathf.Max(0.01f, halfExtents.z - PlacementOverlapInset));
+    }
+
+    private static float NormalizeFoundationYaw(float yawDegrees)
+    {
+        return Mathf.Repeat(yawDegrees, 360f);
     }
 }

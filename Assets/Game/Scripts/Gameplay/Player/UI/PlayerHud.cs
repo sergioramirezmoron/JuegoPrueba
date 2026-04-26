@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class PlayerHud : MonoBehaviour
 {
-    private const string BuildModeHint = "Construcción: B abrir";
+    private const string BuildModeHint = "ConstrucciÃ³n: B abrir";
 
     private PlayerVitals vitals;
     private PlayerInventory inventory;

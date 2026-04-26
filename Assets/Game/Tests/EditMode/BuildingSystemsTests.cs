@@ -17,6 +17,39 @@ public class BuildingSystemsTests
     }
 
     [Test]
+    public void FoundationRotationUsesOnlyYAxisAndSupportsFullCircle()
+    {
+        Type buildingSystemType = FindType("BuildingSystem");
+        MethodInfo rotationMethod = buildingSystemType.GetMethod("CreateFoundationRotation", BindingFlags.Static | BindingFlags.Public);
+
+        Quaternion rotation = (Quaternion)rotationMethod.Invoke(null, new object[] { 450f });
+        Vector3 euler = rotation.eulerAngles;
+
+        Assert.That(Mathf.DeltaAngle(euler.x, 0f), Is.EqualTo(0f).Within(0.01f));
+        Assert.That(Mathf.DeltaAngle(euler.y, 90f), Is.EqualTo(0f).Within(0.01f));
+        Assert.That(Mathf.DeltaAngle(euler.z, 0f), Is.EqualTo(0f).Within(0.01f));
+    }
+
+    [Test]
+    public void InfiniteBuildToggleChangesModeState()
+    {
+        Type buildingSystemType = FindType("BuildingSystem");
+        Component buildingSystem = new GameObject("BuildingSystem").AddComponent(buildingSystemType);
+        PropertyInfo infiniteBuildEnabledProperty = buildingSystemType.GetProperty("InfiniteBuildEnabled", BindingFlags.Instance | BindingFlags.Public);
+
+        InvokeInstanceMethod(buildingSystem, "ToggleInfiniteBuild");
+        bool firstState = (bool)infiniteBuildEnabledProperty.GetValue(buildingSystem);
+
+        InvokeInstanceMethod(buildingSystem, "ToggleInfiniteBuild");
+        bool secondState = (bool)infiniteBuildEnabledProperty.GetValue(buildingSystem);
+
+        Assert.That(firstState, Is.True);
+        Assert.That(secondState, Is.False);
+
+        UnityEngine.Object.DestroyImmediate(buildingSystem.gameObject);
+    }
+
+    [Test]
     public void WallSocketAcceptsWallAndDoorwayButRejectsFoundation()
     {
         GameObject pieceObject = new GameObject("Piece");
@@ -89,6 +122,23 @@ public class BuildingSystemsTests
     }
 
     [Test]
+    public void DoorwayBuildPieceCreatesThreeCollisionBoxes()
+    {
+        Type pieceType = FindType("BuildPiece");
+        Type buildPieceType = FindType("BuildPieceType");
+        Component doorwayPiece = new GameObject("DoorwayPiece").AddComponent(pieceType);
+        PropertyInfo collisionBoxesProperty = pieceType.GetProperty("CollisionBoxes", BindingFlags.Instance | BindingFlags.Public);
+
+        InvokeInstanceMethod(doorwayPiece, "Initialize", Enum.Parse(buildPieceType, "Doorway"), false);
+
+        System.Collections.ICollection collisionBoxes = (System.Collections.ICollection)collisionBoxesProperty.GetValue(doorwayPiece);
+
+        Assert.That(collisionBoxes.Count, Is.EqualTo(3));
+
+        UnityEngine.Object.DestroyImmediate(doorwayPiece.gameObject);
+    }
+
+    [Test]
     public void PlacedFoundationIsNotMarkedAsPreview()
     {
         Type pieceType = FindType("BuildPiece");
@@ -131,6 +181,32 @@ public class BuildingSystemsTests
         Assert.That(farArguments[1], Is.Null);
 
         UnityEngine.Object.DestroyImmediate(buildingSystem.gameObject);
+        UnityEngine.Object.DestroyImmediate(placedFoundation.gameObject);
+    }
+
+    [Test]
+    public void StructureOverlapDetectsPiecesInSameSpace()
+    {
+        Type buildingSystemType = FindType("BuildingSystem");
+        Type pieceType = FindType("BuildPiece");
+        Type buildPieceType = FindType("BuildPieceType");
+        Component buildingSystem = new GameObject("BuildingSystem").AddComponent(buildingSystemType);
+        Component previewFoundation = new GameObject("PreviewFoundation").AddComponent(pieceType);
+        Component placedFoundation = new GameObject("PlacedFoundation").AddComponent(pieceType);
+        FieldInfo previewPieceField = buildingSystemType.GetField("previewPiece", BindingFlags.Instance | BindingFlags.NonPublic);
+        MethodInfo hasStructureOverlapMethod = buildingSystemType.GetMethod("HasStructureOverlap", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        InvokeInstanceMethod(previewFoundation, "Initialize", Enum.Parse(buildPieceType, "Foundation"), true);
+        InvokeInstanceMethod(placedFoundation, "Initialize", Enum.Parse(buildPieceType, "Foundation"), false);
+        previewPieceField.SetValue(buildingSystem, previewFoundation);
+        placedFoundation.transform.position = new Vector3(0f, 0.125f, 0f);
+
+        bool overlaps = (bool)hasStructureOverlapMethod.Invoke(buildingSystem, new object[] { new Pose(new Vector3(0f, 0.125f, 0f), Quaternion.identity) });
+
+        Assert.That(overlaps, Is.True);
+
+        UnityEngine.Object.DestroyImmediate(buildingSystem.gameObject);
+        UnityEngine.Object.DestroyImmediate(previewFoundation.gameObject);
         UnityEngine.Object.DestroyImmediate(placedFoundation.gameObject);
     }
 

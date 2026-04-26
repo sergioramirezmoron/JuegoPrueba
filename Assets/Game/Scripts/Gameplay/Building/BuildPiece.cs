@@ -14,11 +14,13 @@ public class BuildPiece : MonoBehaviour
     public const float DoorOpeningWidth = WallWidth - (DoorPostWidth * 2f);
 
     private readonly List<Renderer> renderers = new List<Renderer>();
+    private readonly List<BoxCollider> collisionBoxes = new List<BoxCollider>();
     private readonly List<BuildSocket> sockets = new List<BuildSocket>();
     private bool isPreview;
 
     public BuildPieceType pieceType;
 
+    public IReadOnlyList<BoxCollider> CollisionBoxes => collisionBoxes;
     public IReadOnlyList<BuildSocket> Sockets => sockets;
     public bool IsPreview => isPreview;
 
@@ -118,12 +120,17 @@ public class BuildPiece : MonoBehaviour
         renderer.material.color = tint;
         renderers.Add(renderer);
 
+        BoxCollider boxCollider = box.GetComponent<BoxCollider>();
+        if (boxCollider != null)
+        {
+            collisionBoxes.Add(boxCollider);
+        }
+
         if (isPreview)
         {
-            Collider collider = box.GetComponent<Collider>();
-            if (collider != null)
+            if (boxCollider != null)
             {
-                collider.enabled = false;
+                boxCollider.enabled = false;
             }
         }
     }
